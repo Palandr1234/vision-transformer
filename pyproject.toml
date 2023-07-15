@@ -1,0 +1,11 @@
+[tool.poetry]
+name = "car_tracking"
+version = "0.1.0"
+description = ""
+authors = ["palandr1234"]
+readme = "README.md"
+packages = [{include = "vision_transformer"}]
+
+[tool.poetry.dependencies]
+python = ">=3.9"
+torch = {url = "https://download.pytorch.org/whl/cu117/torch-1.13.0%2Bcu117-cp310-cp310-linux_x86_64.whl"}
