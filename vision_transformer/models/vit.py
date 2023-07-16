@@ -49,7 +49,8 @@ class VisionTransformer(nn.Module):
         """
         super().__init__()
         self.patch_embedding = PatchEmbedding(embed_dim, patch_size, in_channels)
-        self.positional_embedding = nn.Parameter(torch.zeros(max_num_patches, 1, embed_dim), requires_grad=True)
+        self.positional_embedding = nn.Parameter(torch.randn(max_num_patches, 1, embed_dim), requires_grad=True)
+        self.cls_token_embedding = nn.Parameter(torch.randn(1, 1, embed_dim), requires_grad=True)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -62,4 +63,6 @@ class VisionTransformer(nn.Module):
             torch.Tensor - patch embeddings of shape [num_patches, batch_size, embed_dim]
         """
         x = self.patch_embedding(x)
-        return x + self.positional_embedding[:x.shape[0]]
+        x = x + self.positional_embedding[:x.shape[0]]
+        cls_token_emb = self.cls_token_embedding.expand(-1, x.shape[1], -1)
+        return torch.cat([cls_token_emb, x])
