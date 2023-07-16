@@ -60,7 +60,7 @@ class VisionTransformer(nn.Module):
             x: torch.Tensor - input tensor of shape [batch_size, in_channels, height, width]
 
         Returns:
-            torch.Tensor - patch embeddings of shape [num_patches, batch_size, embed_dim]
+            torch.Tensor - patch embeddings of shape [num_patches + 1, batch_size, embed_dim]
         """
         x = self.patch_embedding(x)
         x = x + self.positional_embedding[:x.shape[0]]
