@@ -37,7 +37,7 @@ class PatchEmbedding(nn.Module):
 
 
 class VisionTransformer(nn.Module):
-    def __init__(self, embed_dim: int, patch_size: int, in_channels: int = 3):
+    def __init__(self, embed_dim: int, patch_size: int, in_channels: int = 3, max_num_patches: int = 5000) -> None:
         """
         Initialization of vision transformer
 
@@ -45,9 +45,11 @@ class VisionTransformer(nn.Module):
             embed_dim: int - embedding dimensionality
             patch_size: int - size of each patch
             in_channels: int - number of input channels
+            max_num_patches: int - maximum number of patches
         """
         super().__init__()
         self.patch_embedding = PatchEmbedding(embed_dim, patch_size, in_channels)
+        self.positional_embedding = nn.Parameter(torch.zeros(max_num_patches, 1, embed_dim), requires_grad=True)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -59,4 +61,5 @@ class VisionTransformer(nn.Module):
         Returns:
             torch.Tensor - patch embeddings of shape [num_patches, batch_size, embed_dim]
         """
-        return self.patch_embedding(x)
+        x = self.patch_embedding(x)
+        return x + self.positional_embedding[:x.shape[0]]
