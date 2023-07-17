@@ -1,4 +1,5 @@
 from typing import Optional
+import math
 
 import torch
 from torch import nn
@@ -40,11 +41,22 @@ class MultiHeadAttention(nn.Module):
     """
     Class for multi-head attention
     """
-    def __init__(self, embed_dim: int, num_heads: int, head_dim: int) -> None:
+    def __init__(self, embed_dim: int, num_heads: int, dropout_prob: float = 0.1) -> None:
+        """
+        Initialization for multi-head attention class
+
+        Args:
+            embed_dim: int - dimensionality of embeddings
+            num_heads: int - number of heads
+            dropout_prob: probability of dropout being applied
+        """
         super().__init__()
-        self.query_transform = LinearMultiHeadAttention(embed_dim, num_heads, head_dim)
-        self.key_transform = LinearMultiHeadAttention(embed_dim, num_heads, head_dim)
-        self.value_transform = LinearMultiHeadAttention(embed_dim, num_heads, head_dim)
+        self.head_dim = embed_dim // num_heads
+        self.query_transform = LinearMultiHeadAttention(embed_dim, num_heads, self.head_dim)
+        self.key_transform = LinearMultiHeadAttention(embed_dim, num_heads, self.head_dim)
+        self.value_transform = LinearMultiHeadAttention(embed_dim, num_heads, self.head_dim)
+        self.softmax = nn.Softmax(dim=1)
+        self.dropout = nn.Dropout(dropout_prob)
 
     def forward(self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor,
                 mask: Optional[torch.Tensor] = None) -> torch.Tensor:
@@ -58,7 +70,7 @@ class MultiHeadAttention(nn.Module):
                                            whether i-th token has access to j-th token
 
         Returns:
-            torch.Tensor - output tensor of shape [seq_len, batch_size, num_heads, head_dim]
+            torch.Tensor - output tensor of shape [seq_len, batch_size, embed_dim]
         """
         if mask is not None:
             mask = mask.unsqueeze(-1)
@@ -66,4 +78,12 @@ class MultiHeadAttention(nn.Module):
         query = self.query_transform(query)
         key = self.key_transform(key)
         value = self.value_transform(value)
-        return value
+
+        scores = 1 / math.sqrt(self.head_dim) * torch.einsum('ibhd,jbhd->ijbh', query, key)
+
+        if mask is not None:
+            scores = scores.masked_fill(mask == 0, float('-inf'))
+
+        scores = self.dropout(self.softmax(scores))
+        out = torch.einsum('ijbh,jbhd->ibhd', scores, value)
+        return out.view(*out.shape[:2], -1)
