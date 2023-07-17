@@ -39,8 +39,9 @@ class PatchEmbedding(nn.Module):
 
 
 class VisionTransformer(nn.Module):
-    def __init__(self, embed_dim: int, patch_size: int, num_heads: int, hidden_dim: int, num_layers: int,
-                 in_channels: int = 3, max_num_patches: int = 5000, dropout_prob: float = 0.1) -> None:
+    def __init__(self, num_classes: int, embed_dim: int, patch_size: int, num_heads: int, hidden_dim1: int,
+                 hidden_dim2: int, num_layers: int, in_channels: int = 3, max_num_patches: int = 5000,
+                 dropout_prob: float = 0.1) -> None:
         """
         Initialization of vision transformer
 
@@ -54,8 +55,13 @@ class VisionTransformer(nn.Module):
         self.patch_embedding = PatchEmbedding(embed_dim, patch_size, in_channels)
         self.positional_embedding = nn.Parameter(torch.randn(max_num_patches, 1, embed_dim), requires_grad=True)
         self.cls_token_embedding = nn.Parameter(torch.randn(1, 1, embed_dim), requires_grad=True)
-        self.transformer_layers = nn.ModuleList([TransformerLayer(embed_dim, num_heads, hidden_dim, dropout_prob)
+        self.transformer_layers = nn.ModuleList([TransformerLayer(embed_dim, num_heads, hidden_dim1, dropout_prob)
                                                  for _ in range(num_layers)])
+        self.layer_norm = nn.LayerNorm([embed_dim])
+        self.linear1 = nn.Linear(embed_dim, hidden_dim2)
+        self.activation = nn.GeLU()
+        self.linear2 = nn.Linear(hidden_dim2, num_classes)
+        self.softmax = nn.Softmax(dim=-1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -65,7 +71,7 @@ class VisionTransformer(nn.Module):
             x: torch.Tensor - input tensor of shape [batch_size, in_channels, height, width]
 
         Returns:
-            torch.Tensor - patch embeddings of shape [num_patches + 1, batch_size, embed_dim]
+            torch.Tensor - patch embeddings of shape [batch_size, num_classes]
         """
         x = self.patch_embedding(x)
         x = x + self.positional_embedding[:x.shape[0]]
@@ -74,4 +80,7 @@ class VisionTransformer(nn.Module):
         for layer in self.transformer_layers:
             x = layer(x, mask=None)
 
-        return x
+        #  Get the transformer output of the [CLS] token
+        x = self.layer_norm(x[0])
+        x = self.activation(self.linear1(x))
+        return self.softmax(self.linear2(x))
